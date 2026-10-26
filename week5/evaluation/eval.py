@@ -1,5 +1,7 @@
+import os
 import sys
 import math
+from concurrent.futures import ThreadPoolExecutor
 from pydantic import BaseModel, Field
 from litellm import completion
 from dotenv import load_dotenv
@@ -10,7 +12,10 @@ from implementation.answer import answer_question, fetch_context
 
 load_dotenv(override=True)
 
-MODEL = "gpt-4.1-nano"
+MODEL = "gpt-6-luna"
+MAX_CONCURRENT_ANSWER_EVALUATIONS = int(os.getenv("ANSWER_EVAL_MAX_WORKERS", "10"))
+if MAX_CONCURRENT_ANSWER_EVALUATIONS < 1:
+    raise ValueError("ANSWER_EVAL_MAX_WORKERS must be at least 1")
 db_name = "vector_db"
 
 
@@ -171,13 +176,15 @@ def evaluate_all_retrieval():
 
 
 def evaluate_all_answers():
-    """Evaluate all answers to tests using batched async execution."""
+    """Evaluate answers concurrently while yielding results in test order."""
     tests = load_tests()
     total_tests = len(tests)
-    for index, test in enumerate(tests):
-        result = evaluate_answer(test)[0]
-        progress = (index + 1) / total_tests
-        yield test, result, progress
+    with ThreadPoolExecutor(max_workers=MAX_CONCURRENT_ANSWER_EVALUATIONS) as executor:
+        for index, (test, evaluation) in enumerate(
+            zip(tests, executor.map(evaluate_answer, tests)), start=1
+        ):
+            progress = index / total_tests
+            yield test, evaluation[0], progress
 
 
 def run_cli_evaluation(test_number: int):
