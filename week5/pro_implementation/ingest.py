@@ -11,7 +11,7 @@ from tenacity import retry, wait_exponential
 
 load_dotenv(override=True)
 
-MODEL = "openai/gpt-4o-mini"
+MODEL = "openai/gpt-6-luna"
 
 DB_NAME = str(Path(__file__).parent.parent / "preprocessed_db")
 collection_name = "docs"
@@ -21,7 +21,7 @@ AVERAGE_CHUNK_SIZE = 100
 wait = wait_exponential(multiplier=1, min=10, max=240)
 
 
-WORKERS = 3
+WORKERS = 10
 
 openai = OpenAI()
 
